@@ -91,6 +91,7 @@ const router = createRouter();
     }
 
     // todo: duplicate check.
+    
 
     if (route.$GET) addRoute(router, "GET", path, { route });
     if (route.$POST) addRoute(router, "POST", path, { route });
