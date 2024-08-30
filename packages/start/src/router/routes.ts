@@ -1,4 +1,4 @@
-import { createRouter } from "radix3";
+import { addRoute, createRouter, findRoute } from "rou3";
 import fileRoutes from "vinxi/routes";
 
 interface Route {
@@ -12,6 +12,10 @@ interface Route {
   $PUT?: any;
   $PATCH?: any;
   $DELETE?: any;
+}
+
+interface RouteData {
+  [key: `$${string}`]: any
 }
 
 declare module "vinxi/routes" {
@@ -55,9 +59,10 @@ function defineRoutes(fileRoutes: Route[]) {
 }
 
 export function matchAPIRoute(path: string, method: string) {
-  const match = router.lookup(path);
-  if (match && match.route) {
-    const handler = match.route[`$${method}`];
+  const match = findRoute(router, method, path);
+  if (match && match.data) {
+    const data = match.data as RouteData;
+    const handler = data[`$${method}` as keyof RouteData];
     if (handler === undefined) return;
     return {
       handler,
@@ -70,19 +75,25 @@ function containsHTTP(route: Route) {
   return route["$GET"] || route["$POST"] || route["$PUT"] || route["$PATCH"] || route["$DELETE"];
 }
 
-const router = createRouter({
-  routes: (fileRoutes as unknown as Route[]).reduce((memo, route) => {
-    if (!containsHTTP(route)) return memo;
-    let path = route.path.replace(/\/\([^)/]+\)/g, "").replace(/\([^)/]+\)/g, "").replace(/\*([^/]*)/g, (_, m) => `**:${m}`).split('/').map(s => (s.startsWith(':') || s.startsWith('*')) ? s : encodeURIComponent(s)).join('/');
+const router = createRouter();
+(fileRoutes as unknown as Route[]).forEach(route => {
+  if (containsHTTP(route)) {
+    let path = route.path
+      .replace(/\/\([^)/]+\)/g, "")
+      .replace(/\([^)/]+\)/g, "")
+      .replace(/\*([^/]*)/g, (_, m) => `**:${m}`)
+      .split('/')
+      .map(s => (s.startsWith(':') || s.startsWith('*')) ? s : encodeURIComponent(s))
+      .join('/');
+
     if (/:[^/]*\?/g.test(path)) {
       throw new Error(`Optional parameters are not supported in API routes: ${path}`);
     }
-    if (memo[path]) {
-      throw new Error(
-        `Duplicate API routes for "${path}" found at "${memo[path]!.route.path}" and "${route.path}"`
-      );
-    }
-    memo[path] = { route };
-    return memo;
-  }, {} as Record<string, { route: Route }>)
+
+    if (route.$GET) addRoute(router, "GET", path, { route });
+    if (route.$POST) addRoute(router, "POST", path, { route });
+    if (route.$PUT) addRoute(router, "PUT", path, { route });
+    if (route.$PATCH) addRoute(router, "PATCH", path, { route });
+    if (route.$DELETE) addRoute(router, "DELETE", path, { route });
+  }
 });
