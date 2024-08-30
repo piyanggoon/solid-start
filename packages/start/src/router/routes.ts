@@ -76,7 +76,7 @@ function containsHTTP(route: Route) {
 }
 
 const router = createRouter();
-(fileRoutes as unknown as Route[]).forEach(route => {
+(fileRoutes as unknown as Route[]).forEach((route) => {
   if (containsHTTP(route)) {
     let path = route.path
       .replace(/\/\([^)/]+\)/g, "")
@@ -89,6 +89,8 @@ const router = createRouter();
     if (/:[^/]*\?/g.test(path)) {
       throw new Error(`Optional parameters are not supported in API routes: ${path}`);
     }
+
+    // todo: duplicate check.
 
     if (route.$GET) addRoute(router, "GET", path, { route });
     if (route.$POST) addRoute(router, "POST", path, { route });
